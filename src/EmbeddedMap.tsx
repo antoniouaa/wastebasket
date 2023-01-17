@@ -1,18 +1,38 @@
 import React from "react";
-import L, { LatLngExpression } from "leaflet";
+import L, { LatLngExpression, Icon } from "leaflet";
+import markerIconPng from "leaflet/dist/images/marker-icon.png";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, Marker, TileLayer, Popup, useMap } from "react-leaflet";
 
-interface ChangeCenterProps {
+interface ChangeMapProps {
   center: LatLngExpression;
   zoom?: number;
+  isMapChanging?: boolean;
 }
 
-const ChangeCenter = ({ center, zoom }: ChangeCenterProps) => {
+interface MapCircleProps {
+  layer: L.Circle;
+}
+
+const ChangeCenter = ({ center, zoom }: ChangeMapProps) => {
   const map = useMap();
 
   React.useEffect(() => {
     map.setView(center, zoom);
+  }, [center, zoom]);
+
+  return null;
+};
+
+const ChangeRadius = ({
+  center,
+  zoom,
+  layer,
+}: ChangeMapProps & MapCircleProps) => {
+  const map = useMap();
+  React.useEffect(() => {
+    if (layer) layer.addTo(map);
+    layer.setLatLng(center);
   }, [center, zoom]);
 
   return null;
@@ -26,35 +46,48 @@ export const EmbeddedMap = () => {
     new Map([[position, "start"]])
   );
   const [reCenter, setRecenter] = React.useState<boolean>(true);
-  const zoom: number = 11;
-
-  React.useEffect(() => {
-    setInterval(() => {
-      setRecenter(false);
-    }, 50);
-  });
+  const [radiusLayer] = React.useState<L.Circle>(
+    new L.Circle(position, {
+      radius: 500,
+      color: "#89cff0",
+      fillColor: "#89cff0",
+      fillOpacity: 0.25,
+    })
+  );
+  const zoom: number = 16;
 
   React.useEffect(() => {
     handleCurrentLocation();
   }, []);
 
-  const handleCurrentLocation = (e?: React.MouseEvent) => {
+  const handleCurrentLocation = (_?: React.MouseEvent) => {
     navigator.geolocation.getCurrentPosition((p) => {
       const { latitude, longitude } = p.coords;
       setPosition([latitude, longitude]);
-      setMarks(new Map(marks).set([latitude, longitude], "Current Location"));
+      setMarks(new Map(marks).set([latitude, longitude], "You are here!"));
     });
   };
 
   const handleCenterMap = () => {
     setRecenter(true);
-    console.log(position);
+    setInterval(() => {
+      setRecenter(false);
+    }, 500);
   };
 
   const markers = Array.from(marks)
     .slice(1)
     .map(([pos, label], i) => (
-      <Marker key={JSON.stringify(pos) + i} position={pos}>
+      <Marker
+        key={JSON.stringify(pos) + i}
+        position={pos}
+        icon={
+          new Icon({
+            iconUrl: markerIconPng,
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+          })
+        }>
         <Popup>{label}</Popup>
       </Marker>
     ));
@@ -67,6 +100,7 @@ export const EmbeddedMap = () => {
         zoom={zoom}
         scrollWheelZoom={true}>
         {reCenter && <ChangeCenter center={position} />}
+        {<ChangeRadius center={position} zoom={zoom} layer={radiusLayer} />}
         <TileLayer
           attribution="&copy; <a href='http://osm.org/copyright'>OpenStreetMap</a> contributors"
           url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
